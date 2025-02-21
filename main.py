@@ -3,8 +3,9 @@ import pygame
 from player import Player
 from game_map import GameMap
 from movement import check_location, handle_collisions_and_powerups, check_collision_man_ghost
-from scoreboard import draw_score, draw_lives, draw_powerup_event, show_time, show_game_over_screen
+from scoreboard import draw_score, draw_lives, draw_powerup_event, show_time, show_game_over_screen, save_scores, load_scores, reset_game
 from ghost import Ghost
+import copy
 import time
 
 # Screen dimensions
@@ -16,7 +17,7 @@ num2 = s_width // 30  # Cell width
 
 # Initialize player
 player_images = [pygame.transform.scale(pygame.image.load(f'assets/images/player_images/{i}.png'), (34, 34)) for i in range(1, 4)]
-player = Player(x = 430, y = 595, speed = 3, images = player_images, lives = 3)
+player = Player(x = 430, y = 595, speed = 2, images = player_images, lives = 3)
 counter = 0
 
 # Initialize ghosts
@@ -53,8 +54,8 @@ def main():
     clock = pygame.time.Clock()
 
     score = 0  # Initialize score
-    prev_score = score  # initialize prev score
-    high_score = max(prev_score, score) # get the highest between score and previous for the highscore
+    prev_score, high_score = load_scores()  # load scores when game begins
+
     powered_up = False
     powered_up_counter = 0
     ghosts_eaten = [False, False, False, False]
@@ -62,6 +63,7 @@ def main():
     player.lives = lives
    
     game_map = GameMap(s_width, s_height)
+    og_game_map = GameMap(s_width, s_height)
     frame_counter = 0  #will be used for something sooner or later
 
     start_time = time.time()
@@ -107,13 +109,17 @@ def main():
         
         # show the game over text and let the user restart or close the game 
         if player.lives <= 0:
+            # first save the scores
+            prev_score = score
+            high_score = max(high_score, score)
+            save_scores(prev_score, high_score)
+            # then show game options during game-over sequence
             show_game_over_screen(screen, s_width, s_height)
             player.is_moving = False
             player.respawn()
             start_time = time.time()
             elapsed_time = 0
  
-        
         # Handle events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -134,21 +140,9 @@ def main():
                 elif event.key == pygame.K_SPACE or event.key == pygame.K_n:
                     run = False
                 elif event.key == pygame.K_y or event.key == pygame.K_r:  # to restart and reset game attributes
+                    reset_game(player, ghosts, prev_score, high_score)
+                    game_map = copy.deepcopy(og_game_map)  # reset gamemap by reinitializing it with the og_game_map     
                     score = 0
-                    powered_up = False
-                    powered_up_counter = 0
-                    ghosts_eaten = [False, False, False, False]
-                    lives = 3
-                    player.lives = lives
-                    player.respawn()                        # reset the player position
-                    for ghost in ghosts:
-                        ghost.respawn()                     # reset ghost positions
-                    start_time = time.time()                # reset the timer
-                    game_map.reset_map()                    # reset the game map
-
-                    pygame.quit()                           # quit current game loop
-                    pygame.init()                           # initialize pygame again
-                    main()                                  # reset/restart the game loop 
         """ 
         Screen wrapping logic for pacman and ghosts
         doesn't work well in functions for some reason

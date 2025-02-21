@@ -1,0 +1,703 @@
+ -----------------------------
+| For ghost file if needed  |
+| Part 1 (1/30/25)          |
+-----------------------------
+ # Beyond this point is everything dealing with ghost movements, collision, and location
+    def check_ghost_location(self, g_x, g_y, level, direction, screen_width, screen_height):
+        turns = [False, False, False, False]  # [Right, Left, Up, Down]
+        num1 = (screen_height - 50) // 32     # Tile height
+        num2 = screen_width // 30             # Tile width
+        fudge = 13  
+
+        # Wrap-around logic
+        if g_x < 0:  
+            g_x = screen_width - num2  # Wrap to right side
+        elif g_x >= screen_width:  
+            g_x = 0  # Wrap to left side
+
+        tile_x = (g_x + fudge) // num2 % len(level[0])
+        tile_y = (g_y + fudge) // num1 % len(level)
+
+        # Check Right movement
+        if direction == 0 and (level[g_y // num1][tile_x] < 3 or level[g_y // num1][tile_x] == 9):
+            turns[0] = True
+
+        # Check Left movement
+        if direction == 1 and (level[g_y // num1][(g_x - fudge) // num2 % len(level[0])] < 3 or 
+                                level[g_y // num1][(g_x - fudge) // num2 % len(level[0])] == 9):
+            turns[1] = True
+
+        # Check Up movement
+        if direction == 2 and (level[(g_y - fudge) // num1 % len(level)][g_x // num2] < 3 or 
+                                level[(g_y - fudge) // num1 % len(level)][g_x // num2] == 9):
+            turns[2] = True
+
+            # Check Down movement
+        if direction == 3 and (level[(g_y + fudge) // num1 % len(level)][g_x // num2] < 3 or 
+                                level[(g_y + fudge) // num1 % len(level)][g_x // num2] == 9):
+            turns[3] = True
+
+        return turns
+     
+    def move(self):
+        """Move the ghost in the current direction."""
+        if self.direction == 0:  # Right
+            self.x += self.speed
+            if self.x >= self.screen_width:  
+                self.x = 0  # Wrap to the left side
+        elif self.direction == 1:  # Left
+            self.x -= self.speed
+            if self.x < 0:  
+                self.x = self.screen_width - 32  # Wrap to the right side
+        elif self.direction == 2:  # Up
+            self.y -= self.speed
+        elif self.direction == 3:  # Down
+            self.y += self.speed
+    
+    def move_towards(self, path, level):
+        """Move the ghost toward the next point in the path."""
+        if len(path) > 1:
+            target_x, target_y = path[1][0] * 30, path[1][1] * 32
+            if self.x < target_x:
+                self.x += self.speed
+                self.direction = 0
+            elif self.x > target_x:
+                self.x -= self.speed
+                self.direction = 1
+            if self.y < target_y:
+                self.y += self.speed
+                self.direction = 3
+            elif self.y > target_y:
+                self.y -= self.speed
+                self.direction = 2
+    
+    def bfs_chase(self, level, start_x, start_y, target_x, target_y):
+        """Use BFS to find path to the player."""
+        visited = set()
+        queue = deque([(start_x, start_y, [])])
+        
+        while queue:
+            x, y, path = queue.popleft()
+            if (x, y) == (target_x, target_y):
+                return path + [(x, y)]
+            for nx, ny in self.get_neighbors(x, y, level):
+                if (nx, ny) not in visited:
+                    visited.add((nx, ny))
+                    queue.append((nx, ny, path + [(x, y)]))
+        
+        return []  # If no path is found
+
+    def pick_new_direction(self, valid_moves):
+        """Pick a new direction if the current one is blocked."""
+        import random
+        possible_directions = [i for i, can_move in enumerate(valid_moves) if can_move]
+        
+        return random.choice(possible_directions) if possible_directions else self.direction
+
+    def run_away(self, player, level):
+        """Find path to run away from the player using BFS."""
+        start_x, start_y = self.x // 30, self.y // 32
+        queue = deque([(start_x, start_y, [])])
+        visited = set([(start_x, start_y)])
+        best_path = []
+        
+        while queue:
+            x, y, path = queue.popleft()
+            if len(path) >= 3:  # A limit on path length to avoid too long paths
+                best_path = path
+                break
+            for nx, ny in self.get_neighbors(x, y, level):
+                if (nx, ny) not in visited:
+                    visited.add((nx, ny))
+                    queue.append((nx, ny, path + [(nx, ny)]))
+        
+        return best_path if best_path else [(start_x, start_y)]  # Return best path or current position if no path found
+
+    def update(self, player, level):
+        """Update ghost movement based on valid paths."""
+        valid_moves = self.check_ghost_location(self.x, self.y, level, self.direction, self.screen_width, self.screen_height)
+        if self.is_scared:
+                # If scared, move away from the player
+                if not valid_moves[self.direction]:  # If blocked, pick new direction
+                    self.direction = self.pick_new_direction(valid_moves)
+                self.path = self.run_away(player, level)
+        else:
+                # If not scared, chase the player (BFS pathfinding)
+                if not valid_moves[self.direction]:  # If blocked, pick new direction
+                    self.direction = self.pick_new_direction(valid_moves)
+                self.path = self.bfs(level, self.x // 30, self.y // 32, player.x // 30, player.y // 32)
+
+        self.move_towards(self.path, level)
+        self.counter += 1
+
+
+-----------------------------
+| For ghost file if needed  |
+| Part 2  (2/7/25)          |
+-----------------------------
+    # def get_neighbors(self, x, y, level):
+    #     directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    #     return [(x + dx, y + dy) for dx, dy in directions if 0 <= x + dx < len(level[0]) and 0 <= y + dy < len(level) and level[y + dy][x + dx] in [0, 1, 2, 9]]
+
+    # def bfs(self, level, start_x, start_y, target_x, target_y):
+    #     visited = set()
+    #     queue = deque([(start_x, start_y, [])])
+    #     while queue:
+    #         x, y, path = queue.popleft()
+    #         if (x, y) == (target_x, target_y):
+    #             return path + [(x, y)]
+    #         for nx, ny in self.get_neighbors(x, y, level):
+    #             if (nx, ny) not in visited:
+    #                 visited.add((nx, ny))
+    #                 queue.append((nx, ny, path + [(x, y)]))
+    #     return []
+
+    # def run_away(self, player, level):
+    #     start_x, start_y = self.x // 30, self.y // 32
+    #     queue = deque([(start_x, start_y, [])])
+    #     visited = set([(start_x, start_y)])
+    #     best_path = []
+    #     while queue:
+    #         x, y, path = queue.popleft()
+    #         if len(path) >= 3:
+    #             best_path = path
+    #             break
+    #         for nx, ny in self.get_neighbors(x, y, level):
+    #             if (nx, ny) not in visited:
+    #                 visited.add((nx, ny))
+    #                 queue.append((nx, ny, path + [(nx, ny)]))
+    #     return best_path if best_path else [(start_x, start_y)]
+
+    # def move_towards(self, path, level):
+    #     if len(path) > 1:
+    #         target_x, target_y = path[1][0] * 30, path[1][1] * 32
+    #         if self.x < target_x:
+    #             self.x += self.speed
+    #             self.direction = 0
+    #         elif self.x > target_x:
+    #             self.x -= self.speed
+    #             self.direction = 1
+    #         if self.y < target_y:
+    #             self.y += self.speed
+    #             self.direction = 3
+    #         elif self.y > target_y:
+    #             self.y -= self.speed
+    #             self.direction = 2
+
+    # def update(self, player, level):
+    #     if self.is_scared:
+    #         if self.counter % 2 == 0:
+    #             self.path = self.run_away(player, level)
+    #     else:
+    #         if self.counter % 2 == 0:
+    #             self.path = self.bfs(level, self.x // 30, self.y // 32, player.x // 30, player.y // 32)
+    #     self.move_towards(self.path, level)
+    #     self.counter += 1
+
+    # def check_collision(self, player):
+    #     player_rect = pygame.Rect(player.x, player.y, player.width, player.height)
+    #     ghost_rect = pygame.Rect(self.x, self.y, self.img.get_width(), self.img.get_height())
+    #     if player_rect.colliderect(ghost_rect):
+    #         return "player_eats_ghost" if self.is_scared else "game_over"
+    #     return None
+
+    # def respawn(self):
+    #     if self.dead:
+    #         self.dead = False
+    #         self.x, self.y = self.initial_x, self.initial_y
+    #         self.in_cage, self.released = True, False
+
+
+-----------------------------
+| For ghost file if needed  |
+| Part 2  (2/12/25)         |
+-----------------------------
+
+ # Beyond this point is everything dealing with ghost movements, collision, and location
+    def check_ghost_location(self, g_x, g_y, level, direction, screen_width, screen_height):
+        turns = [False, False, False, False]  # [Right, Left, Up, Down]
+        num1 = (screen_height - 50) // 32  # Tile height
+        num2 = screen_width // 30          # Tile width
+        fudge = 13  # Adjust if needed
+
+        # Calculate the center positions of the ghost
+        center_x = g_x + fudge
+        center_y = g_y + fudge
+
+        # Keep X & Y inside valid tile bounds
+        tile_x = max(0, min(center_x // num2, len(level[0]) - 1))
+        tile_y = max(0, min(center_y // num1, len(level) - 1))
+
+        print(f"Ghost {self.id} at ({g_x}, {g_y}) -> Center ({center_x}, {center_y}) -> Tile ({tile_x}, {tile_y})")  # Debugging
+
+        # Check Right movement
+        if tile_x + 1 < len(level[0]) and (level[tile_y][tile_x + 1] < 3 or level[tile_y][tile_x + 1] == 9):
+            turns[0] = True
+
+        # Check Left movement
+        if tile_x - 1 >= 0 and (level[tile_y][tile_x - 1] < 3 or level[tile_y][tile_x - 1] == 9):
+            turns[1] = True
+
+        # Check Up movement
+        if tile_y - 1 >= 0 and (level[tile_y - 1][tile_x] < 3 or level[tile_y - 1][tile_x] == 9):
+            turns[2] = True
+
+        # Check Down movement
+        if tile_y + 1 < len(level) and (level[tile_y + 1][tile_x] < 3 or level[tile_y + 1][tile_x] == 9):
+            turns[3] = True
+
+        # Adjust for movement direction:
+        if direction == 0 or direction == 1:  # Left or Right
+            # Check extra tiles in the horizontal direction for turns
+            if 12 <= center_y % num1 <= 18:
+                if level[tile_y + 1][tile_x] < 3 or level[tile_y + 1][tile_x] == 9:
+                    turns[3] = True  # Down
+                if level[tile_y - 1][tile_x] < 3 or level[tile_y - 1][tile_x] == 9:
+                    turns[2] = True  # Up
+
+        if direction == 2 or direction == 3:  # Up or Down
+            # Check extra tiles in the vertical direction for turns
+            if 12 <= center_x % num2 <= 18:
+                if level[tile_y][tile_x + 1] < 3 or level[tile_y][tile_x + 1] == 9:
+                    turns[0] = True  # Right
+                if level[tile_y][tile_x - 1] < 3 or level[tile_y][tile_x - 1] == 9:
+                    turns[1] = True  # Left
+
+        print(f"Valid moves: {turns}")  # Debugging
+
+        return turns
+
+    def move(self, path=None):
+        """Move the ghost either freely or toward a path if provided."""
+        if path and len(path) > 1:
+            target_x, target_y = path[1][0] * 30, path[1][1] * 32
+            if self.x < target_x:
+                if self.can_move(self.x + self.speed, self.y, self.level):  # Check if move is valid
+                    self.x += self.speed
+                self.direction = 0
+            elif self.x > target_x:
+                if self.can_move(self.x - self.speed, self.y, self.level):  # Check if move is valid
+                    self.x -= self.speed
+                self.direction = 1
+            if self.y < target_y:
+                if self.can_move(self.x, self.y + self.speed, self.level):  # Check if move is valid
+                    self.y += self.speed
+                self.direction = 3
+            elif self.y > target_y:
+                if self.can_move(self.x, self.y - self.speed, self.level):  # Check if move is valid
+                    self.y -= self.speed
+                self.direction = 2
+        else:
+            # Default movement if no path is given
+            if self.direction == 0:  # Right
+                if self.can_move(self.x + self.speed, self.y, self.level):  # Check if move is valid
+                    self.x += self.speed
+            elif self.direction == 1:  # Left
+                if self.can_move(self.x - self.speed, self.y, self.level):  # Check if move is valid
+                    self.x -= self.speed
+            elif self.direction == 2:  # Up
+                if self.can_move(self.x, self.y - self.speed, self.level):  # Check if move is valid
+                    self.y -= self.speed
+            elif self.direction == 3:  # Down
+                if self.can_move(self.x, self.y + self.speed, self.level):  # Check if move is valid
+                    self.y += self.speed
+
+    def can_move(self, x, y, level):
+        """Check if the ghost can move to the position (x, y)."""
+        tile_x, tile_y = x // 30, y // 32  # Calculate the tile position based on coordinates
+        if 0 <= tile_x < len(level[0]) and 0 <= tile_y < len(level):
+            # Allow movement if the tile is open, a power-up, or the gate (9)
+            return level[tile_y][tile_x] not in [3, 4, 5, 6, 7, 8]  # Walls and arcs are blocked
+        return False
+
+
+    def bfs_pathfinding(self, level, start_x, start_y, target_x, target_y, chase=True):
+        """Use BFS to find a path. If chase=True, move towards the target. If False, move away."""
+        visited = set()
+        queue = deque([(start_x, start_y, [])])
+        best_path = []
+
+        while queue:
+            x, y, path = queue.popleft()
+
+            # If we've reached the target and we're chasing, return the path to the target
+            if (x, y) == (target_x, target_y) and chase:
+                return path + [(x, y)]
+
+            # If we want to flee and have a path of at least 3 steps, pick the best path
+            if len(path) >= 3 and not chase:
+                best_path = path
+                break
+
+            # Explore all valid neighbors
+            for nx, ny in self.get_neighbors(x, y, level):
+                if (nx, ny) not in visited:
+                    visited.add((nx, ny))
+                    queue.append((nx, ny, path + [(nx, ny)]))
+
+        # Return best path for fleeing or empty if chasing
+        return best_path if not chase else []
+
+    def get_neighbors(self, x, y, level):
+        """Get all valid neighboring tiles (ignores walls and arcs)."""
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        return [(x + dx, y + dy) for dx, dy in directions
+                if 0 <= x + dx < len(level[0]) and 0 <= y + dy < len(level)
+                and level[y + dy][x + dx] not in [3, 4, 5, 6, 7, 8]]  # Block walls and arcs
+
+
+
+    def update(self, player, level):
+        """Update ghost movement based on state (scared or chasing)."""
+        valid_moves = self.check_ghost_location(self.x, self.y, level, self.direction, self.screen_width, self.screen_height)
+
+        if not valid_moves[self.direction]:  # If blocked, pick new direction
+            import random
+            possible_directions = [i for i, can_move in enumerate(valid_moves) if can_move]
+            self.direction = random.choice(possible_directions) if possible_directions else self.direction
+
+        if self.is_scared:
+            self.path = self.bfs_pathfinding(level, self.x // 30, self.y // 32, player.x // 30, player.y // 32, chase=False)
+        else:
+            self.path = self.bfs_pathfinding(level, self.x // 30, self.y // 32, player.x // 30, player.y // 32, chase=True)
+
+        self.move(self.path)
+
+
+
+
+
+-----------------------------
+| For ghost file if needed  |
+| Part 3  (2/13/25)         |
+-----------------------------
+
+ # def check_ghost_location(self, g_x, g_y, level, direction, screen_width, screen_height):
+    #     turns = [False, False, False, False]  # [Right, Left, Up, Down]
+    #     num1 = (screen_height - 50) // 32  # Tile height
+    #     num2 = screen_width // 30          # Tile width
+    #     fudge = 8
+        
+    #     self.width, self.height = self.get_ghost_dimensions()
+    #     g_x = self.x + self.width // 2
+    #     g_y = self.y + self.height // 2
+    #     # keep X & Y inside valid tile bounds (clamping)
+    #     tile_x = max(0, min((g_x + fudge) // num2, len(level[0]) - 1))
+    #     tile_y = max(0, min((g_y + fudge) // num1, len(level) - 1))
+
+    #     print(f"Ghost {self.id} at ({g_x}, {g_y}) -> Tile ({tile_x}, {tile_y})")  # Debugging
+
+    #     # Check Right movement (Prevent IndexError by clamping)
+    #     if tile_x + 1 < len(level[0]) and (level[tile_y][tile_x + 1] < 3 or level[tile_y][tile_x + 1] == 9):
+    #         turns[0] = True
+    #     # Check Left movement
+    #     if tile_x - 1 >= 0 and (level[tile_y][tile_x - 1] < 3 or level[tile_y][tile_x - 1] == 9):
+    #         turns[1] = True
+    #     # Check Up movement
+    #     if tile_y - 1 >= 0 and (level[tile_y - 1][tile_x] < 3 or level[tile_y - 1][tile_x] == 9):
+    #         turns[2] = True
+    #     # Check Down movement
+    #     if tile_y + 1 < len(level) and (level[tile_y + 1][tile_x] < 3 or level[tile_y + 1][tile_x] == 9):
+    #         turns[3] = True
+
+    #     # # Adjust for movement direction: (2/12/2025)
+    #     # if direction == 0 or direction == 1:  # Left or Right
+    #     #     # Check extra tiles in the horizontal direction for turns
+    #     #     if 12 <= g_y % num1 <= 18:
+    #     #         if level[tile_y + 1][tile_x] < 3 or level[tile_y + 1][tile_x] == 9:
+    #     #             turns[3] = True  # Down
+    #     #         if level[tile_y - 1][tile_x] < 3 or level[tile_y - 1][tile_x] == 9:
+    #     #             turns[2] = True  # Up
+
+    #     # if direction == 2 or direction == 3:  # Up or Down
+    #     #     # Check extra tiles in the vertical direction for turns
+    #     #     if 12 <= g_x % num2 <= 18:
+    #     #         if level[tile_y][tile_x + 1] < 3 or level[tile_y][tile_x + 1] == 9:
+    #     #             turns[0] = True  # Right
+    #     #         if level[tile_y][tile_x - 1] < 3 or level[tile_y][tile_x - 1] == 9:
+    #     #             turns[1] = True  # Left
+    #     # print(f"Valid moves: {turns}")  # Debugging
+
+    #     return turns
+   
+
+
+    # def update(self, level): # added (2/12/2025)
+    #     """Update ghost movement to be random but collision-aware."""
+    #     valid_moves = self.check_ghost_location(self.x, self.y, level, self.direction, self.screen_width, self.screen_height)
+
+    #     # If current direction is blocked, pick a new random valid direction
+    #     if not valid_moves[self.direction]:
+    #         possible_directions = [i for i, can_move in enumerate(valid_moves) if can_move]
+    #         if possible_directions:
+    #             self.direction = random.choice(possible_directions)
+
+    #     # Move based on current direction
+    #     if self.direction == 0:  # Right
+    #         self.x += self.speed
+    #     elif self.direction == 1:  # Left
+    #         self.x -= self.speed
+    #     elif self.direction == 2:  # Up
+    #         self.y -= self.speed
+    #     elif self.direction == 3:  # Down
+    #         self.y += self.speed
+
+-------------------------------------
+| For ghost file if needed (copies) |
+| Part 4 (2/13/25)                  |
+-------------------------------------
+
+ class Ghost:
+    def __init__(self, x, y, target, speed, img, dead_img, edible_img, screen_width, screen_height, id):
+        self.x, self.y = x, y
+        self.speed = speed
+        # self.direction = 0
+        self.direction = random.choice([0, 1, 2, 3])  # Random initial direction (newly added 2/13/25)
+        self.img, self.dead_img, self.edible_img = img, dead_img, edible_img
+        self.dead, self.is_scared, self.edible = False, False, False
+        self.in_cage, self.released = True, False
+        self.id, self.target = id, target
+        self.path, self.counter = [], 0
+        self.initial_x, self.initial_y = x, y
+        self.screen_width, self.screen_height = screen_width, screen_height
+        self.width, self.height = self.get_ghost_dimensions()
+    
+    def get_ghost_dimensions(self):
+        return self.img.get_width(), self.img.get_height()
+
+    def draw(self, screen):
+        """Draw the ghost based on its state (scared, dead, or normal)."""
+        if self.is_scared and not self.dead:
+            screen.blit(self.edible_img, (self.x, self.y))  # Scared ghost
+        elif self.dead:
+            screen.blit(self.dead_img, (self.x, self.y))  # Dead ghost (when eaten)
+        else:
+            screen.blit(self.img, (self.x, self.y))  # Normal ghost
+
+
+    def scary_ghost(self, powered_up, powered_up_counter):
+        """Update the ghost's state."""
+        # If the power-up is active, make the ghost scared (change color to blue or other)
+        if powered_up and powered_up_counter < 600:  # 600 is an arbitrary time for power-up
+            self.is_scared = True
+        else:
+            self.is_scared = False
+
+    # Beyond this point is everything dealing with ghost movements, collision, and location
+    def check_ghost_location(self, level):
+        """Determine which directions are valid for movement."""
+        turns = [False, False, False, False]  # [Right, Left, Up, Down]
+        num1 = (self.screen_height - 50) // 32  
+        num2 = self.screen_width // 30  
+        fudge = 1
+
+        # g_x = self.x + self.width // 2
+        # g_y = self.y + self.height // 2
+        g_x = self.x + 18
+        g_y = self.y + 18
+        tile_x = max(0, min((g_x + fudge) // num2, len(level[0]) - 1))
+        tile_y = max(0, min((g_y + fudge) // num1, len(level) - 1))
+
+        print(f"Ghost {self.id} at ({g_x}, {g_y}) -> Tile ({tile_x}, {tile_y})")  
+
+        # Check Right
+        if tile_x + 1 < len(level[0]) and (level[tile_y][tile_x + 1] < 3 or level[tile_y][tile_x + 1] == 9):
+            turns[0] = True
+        # Check Left
+        if tile_x - 1 >= 0 and (level[tile_y][tile_x - 1] < 3 or level[tile_y][tile_x - 1] == 9):
+            turns[1] = True
+        # Check Up
+        if tile_y - 1 >= 0 and (level[tile_y - 1][tile_x] < 3 or level[tile_y - 1][tile_x] == 9):
+            turns[2] = True
+        # Check Down
+        if tile_y + 1 < len(level) and (level[tile_y + 1][tile_x] < 3 or level[tile_y + 1][tile_x] == 9):
+            turns[3] = True
+
+        return turns
+    
+    def is_colliding_with_wall(self, level, next_x, next_y):
+        """Check if ghost collides with a wall at the given position."""
+        ghost_rect = pygame.Rect(next_x, next_y, self.width, self.height)
+        num1 = (self.screen_height - 50) // 32  # Tile height
+        num2 = self.screen_width // 30          # Tile width
+        
+        for i in range(0, self.width, self.width // 2):  # Check left/middle/right
+            for j in range(0, self.height, self.height // 2):  # Check top/middle/bottom
+                tile_x = (next_x + i) // num2
+                tile_y = (next_y + j) // num1
+                if level[tile_y][tile_x] >= 3 and level[tile_y][tile_x] != 9:  
+                    return True  # Collides with a wall
+        return False  
+    
+    
+    def update(self, level):
+        """Update ghost movement while avoiding walls."""
+        valid_moves = self.check_ghost_location( level)
+
+        tile_x, tile_y = self.y // 32, self.x // 30  # Convert to tile indices
+
+        # If the ghost is at the gate, force it to move up
+        if (tile_x, tile_y) in [(13, 14), (13, 15)] and valid_moves[2]:
+            self.direction = 2  # Force up movement
+            print(f"Ghost {self.id} at the gate! Forcing movement upwards.")
+
+        # If the current direction is blocked, choose a new one
+        if not valid_moves[self.direction]:
+            possible_directions = [i for i, can_move in enumerate(valid_moves) if can_move]
+            if possible_directions:
+                self.direction = random.choice(possible_directions)
+        
+        # Compute next position
+        next_x, next_y = self.x, self.y
+        if self.direction == 0:  # Right
+            next_x += self.speed
+        elif self.direction == 1:  # Left
+            next_x -= self.speed
+        elif self.direction == 2:  # Up
+            next_y -= self.speed
+        elif self.direction == 3:  # Down
+            next_y += self.speed
+
+        # Ensure ghosts move if possible
+        if valid_moves[self.direction]:
+            self.x, self.y = next_x, next_y
+
+
+------------------------------------------------------
+| For ghost file if needed (copies)                  |
+| Part 5 (2/16/25) turning ghosts purple/scared      |
+------------------------------------------------------
+
+  # def scary_ghost(self, powered_up, powered_up_counter):
+    #     """Update the ghost's state."""
+    #     # If the power-up is active, make the ghost scared (change color to blue or other)
+    #     if powered_up and powered_up_counter < 600 and not self.dead:  # 600 // 60 = 10sec,  time for power-up
+    #         self.is_scared = True
+    #     else:
+    #         self.is_scared = False
+
+------------------------------------------------------
+| For ghost file if needed (copies)                  |
+| Part 5 (2/17/25) ghost movements without Ai        |
+------------------------------------------------------
+
+ def update(self, level, player, powered_up, powered_up_counter):
+        """
+        Update ghost movement to be random but ofc handle wall collisions.
+        added a player and ghost collision for ghost:
+         - call respawn function and be idle if eaten during powerup duration
+         - kill pac guy if no powerup is activated
+        """
+        if self.dead: # respawn ghost if dead
+            self.respawn()
+            return
+
+        # turn ghost scared if powerup is active, only for a limited time ofc
+        if powered_up and powered_up_counter < 600 and not self.dead:
+            self.is_scared = True
+        else:
+            self.is_scared = False
+
+        valid_moves = self.check_ghost_location(level)
+
+        # Mark ghost as released once it leaves the cage
+        cage_x_range = (385, 450)  # Approximate x-range of the cage
+        cage_y_exit = 295  # Approximate y-position of the gate
+        if not self.released and self.y < cage_y_exit and (self.x > cage_x_range[0] and self.x < cage_x_range[1]):
+            self.released = True
+
+        # to stop living ghosts from going back into the cage
+        if self.released and not self.dead:
+            if level[self.y // 32][self.x // 32] == 9:  # Trying to go back into the cage (Gate Tile)
+                self.direction = random.choice([0, 1, 2])  # Choose a new direction
+
+        # choose a new random direction if the current one is blocked
+        if not valid_moves[self.direction]:
+            possible_directions = [i for i, can_move in enumerate(valid_moves) if can_move]
+            if possible_directions:
+                self.direction = random.choice(possible_directions)
+
+        # Move the ghost based on the chosen direction
+        if self.direction == 0:  # Right
+            self.x += self.speed
+        elif self.direction == 1:  # Left
+            self.x -= self.speed
+        elif self.direction == 2:  # Up
+            self.y -= self.speed
+        elif self.direction == 3:  # Down
+            self.y += self.speed
+        
+        self.is_moving = True
+        
+        # check for collision with pac guy
+        if self.hitbox.colliderect(player.hitbox):
+            if self.is_scared:  
+                self.dead = True            # If scared, ghost gets eaten and respawns
+                self.respawn_timer = 240     #  4 sec respawn time inside cage
+                self.is_moving = False
+            else:
+                player.lost_life()  # If not scared, pac guy loses a life
+        # then we update hitbox after moving
+        self.hitbox = pygame.Rect(self.x + 4, self.y + 4, self.width - 8, self.height - 8)
+
+
+
+
+---------------------------------------
+| For movement file if needed (copies)|
+| Part 1 (2/16/25)                    |
+---------------------------------------
+ The original check location but not used anymore, simply backup
+
+# def check_location(c_x, c_y, level, direction, screen_width, screen_height):
+#     """
+#     Check valid movement directions based on the player's position and the game map.
+#     Args:
+#         c_x (int): Center x-coordinate of the player.
+#         c_y (int): Center y-coordinate of the player.
+#         level (list): 2D array representing the game map.
+#         direction (int): Current movement direction (0: right, 1: left, 2: up, 3: down).
+#         screen_width (int): Width of the game screen.
+#         screen_height (int): Height of the game screen.
+#     Returns:
+#         list: A list of booleans [right, left, up, down] indicating movement validity.
+#     """
+#     turns = [False, False, False, False]  # [Right, Left, Up, Down]
+#     num1 = (screen_height - 50) // 32  # Height of each map piece
+#     num2 = screen_width // 30  # Width of each map piece
+#     fudge = 13  # adjusts for slight overlaps to smooth movement near boundaries.
+#     # increasing/decreasing this value would allow for more/less space between the player and the walls.
+
+#     # make sure we're within the map bounds
+#     if c_x // num2 < len(level[0]) and c_y // num1 < len(level):
+#         # Right movement (direction == 0)
+#         if direction == 0 and level[c_y // num1][(c_x + fudge) // num2] < 3:
+#             turns[0] = True
+
+#         # Left movement (direction == 1)
+#         if direction == 1 and level[c_y // num1][(c_x - fudge) // num2] < 3:
+#             turns[1] = True
+
+#         # Up movement (direction == 2)
+#         if direction == 2 and level[(c_y - fudge) // num1][c_x // num2] < 3:
+#             turns[2] = True
+
+#         # Down movement (direction == 3)
+#         if direction == 3 and level[(c_y + fudge) // num1][c_x // num2] < 3:
+#             turns[3] = True
+
+#         # Fine tune movements near tile boundaries
+#         if direction in [0, 1]:  # Horizontal movements
+#             if 10 <= c_y % num1 <= 16:  # Near vertical center of the tile
+#                 if level[c_y // num1][(c_x + fudge) // num2] < 3:
+#                     turns[0] = True
+#                 if level[c_y // num1][(c_x - fudge) // num2] < 3:
+#                     turns[1] = True
+
+#         elif direction in [2, 3]:  # Vertical movements
+#             if 10 <= c_x % num2 <= 16:  # Near horizontal center of the tile
+#                 if level[(c_y + fudge) // num1][c_x // num2] < 3:
+#                     turns[3] = True
+#                 if level[(c_y - fudge) // num1][c_x // num2] < 3:
+#                     turns[2] = True
+#     return turns

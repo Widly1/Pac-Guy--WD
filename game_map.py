@@ -8,7 +8,6 @@ class GameMap:
     def __init__(self, screen_width, screen_height, color='blue'):
         from mazes import maze
         self.level = copy.deepcopy(maze)  # working maze copy (for gameplay)
-        self.og_level = copy.deepcopy(maze)  # backup maze (for resetting map)
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.color = color
@@ -21,9 +20,6 @@ class GameMap:
         for row_index, row in enumerate(self.level):
             for col_index, cell in enumerate(row):
                 self._draw_cell(screen, row_index, col_index, cell, flashing, frame_counter)
-    
-    def reset_map(self):
-        self.level = copy.deepcopy(self.og_level)
     
     def _draw_cell(self, screen, row, col, cell, flashing, frame_counter):
         """Draw an individual cell based on its type."""
