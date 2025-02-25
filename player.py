@@ -59,7 +59,6 @@ class Player:
             self.dead = True
             self.respawn()     # respawn pac guy
             self.is_moving = False                              # make pac guy still after respawning 
-            self.initial_direction = self.direction         # have pac guy facing to the right upon respawn
             self.hitbox = pygame.Rect(self.x, self.y, self.width, self.height)
         
 

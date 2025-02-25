@@ -62,8 +62,8 @@ def main():
     lives = 3
     player.lives = lives
    
-    game_map = GameMap(s_width, s_height)
-    og_game_map = GameMap(s_width, s_height)
+    game_map = GameMap(s_width, s_height)   # map for gameplay
+    og_game_map = GameMap(s_width, s_height)    # map for reset (new game)
     frame_counter = 0  #will be used for something sooner or later
 
     start_time = time.time()
