@@ -3,6 +3,7 @@
 Pac-Guy is a retro-inspired game based on the classic arcade game Pac-Man. This project was developed entirely from scratch using Python, though I leveraged various online tutorials, forums, and tools to guide me through the process. This marks my first step into the world of game development, and it has been an incredibly rewarding experience.
 
 ⭐️ Development Journey
+
 Creating Pac-Guy has taught me a lot about game programming, especially in terms of logic, collision detection, and file management. Some of the biggest challenges I faced included:
 - Implementing **player-wall collision** to prevent movement through solid objects.
 - Developing **player-ghost collision** to determine when a game-over event should occur.
