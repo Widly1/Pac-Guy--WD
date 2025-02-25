@@ -61,7 +61,6 @@ class Player:
             self.is_moving = False                              # make pac guy still after respawning 
             self.hitbox = pygame.Rect(self.x, self.y, self.width, self.height)
         
-
     def respawn(self):
         self.x, self.y = self.initial_x, self.initial_y
         self.is_moving = False 

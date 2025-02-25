@@ -7,12 +7,10 @@ import time
 
 global my_font
 my_font = "assets/fonts/SuperCartoon.ttf"
-# my_font = os.path.abspath("assets/fonts/SuperCartoon.ttf")
-# my_font = os.path.join(os.getcwd(), "assets/fonts/SuperCartoon.ttf")
 
 def draw_score(screen, score, prev_score, high_score):
     """Draw the score text on the screen."""
-    # Defined positions
+    # positions
     outside_x_pos, outside_y_pos = 10, 820
     side_x_pos, side_y_pos = 150, 820
     h_side_x_pos, h_side_y_pos = 320, 820
@@ -20,7 +18,7 @@ def draw_score(screen, score, prev_score, high_score):
     font_size = 18                 
     font = pygame.font.Font(my_font, font_size)  
 
-    # Create rendered text
+    # create text
     text_score = font.render(f'Score: {score}', True, 'White')  
     text_pscore = font.render(f'Prev. Score: {prev_score}', True, 'White')  
     text_hscore = font.render(f'Highest: {high_score}', True, 'White')  
@@ -31,7 +29,7 @@ def draw_score(screen, score, prev_score, high_score):
     screen.blit(text_hscore, (h_side_x_pos, h_side_y_pos))
 
 
-# newly added function for loading scores from json file (better formatting + more common)
+# newly added (2.21.25) function for saving and loading scores from json file (better formatting + more common)
 SCORE_FILE = "highscores.json"
 
 def load_scores():
@@ -41,7 +39,7 @@ def load_scores():
             data = json.load(file)
             return data.get("prev_score", 0), data.get("high_score", 0)
     except (FileNotFoundError, json.JSONDecodeError):
-        return 0, 0  # Default scores if file is missing or corrupted
+        return 0, 0  # blank or default scores if file is missing or damaged
 
 def save_scores(prev_score, high_score):
     """Saves the previous and high score to the file."""
@@ -90,7 +88,6 @@ def draw_lives(screen, lives, hearts_img):
                     (outside_x_pos + i * (img_width + img_padding), outside_y_pos)) # img width + padding, adds space between them
 
 #  newly added function (2.17.25) still need to add game menu
-
 def show_game_over_screen(screen, s_width, s_height):
     new_font = "assets/fonts/RETRO-DISPLAY.ttf"
     
@@ -115,7 +112,7 @@ def show_game_over_screen(screen, s_width, s_height):
     screen.blit(quit_text, ((s_width // 2) - (quit_text.get_width() // 2), (s_height // 2) + 205))
 
 
-# newly added file (2.20.25) could be deleted soon or tweaked, we'll see
+# newly (2.21.25) added function for resetting the game
 def reset_game(player, ghosts, prev_score, high_score):
     global  powered_up, powered_up_counter, ghosts_eaten, lives, start_time
     powered_up = False
@@ -130,3 +127,90 @@ def reset_game(player, ghosts, prev_score, high_score):
     start_time = time.time()  # Reset timer
 
     prev_score, high_score = load_scores()  # Reload scores
+
+
+# newly added (2.22.25) function for pausing or continuing the game 
+def paused_screen(screen):
+    """ show a pause menu with 'Continue' and 'Quit' buttons """
+    font = pygame.font.Font(my_font, 60)
+    button_font = pygame.font.Font(my_font, 50)
+
+    # show "Paused" text
+    text = font.render("GAME PAUSED", True, (255, 255, 255))
+    text_rect = text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 3))  # positions the text in the center of the screen
+
+    # button rectangles creation (the words will be inside of these rects)
+    button_width, button_height = 210, 70
+    
+    # create two rectangular button areas, "continue" and "quit" 
+    # subtract 100 from screen.get_width() // 2 to shift the buttons to center it
+    # screen.get_width() // 2 alone would only place the left edge of the buttons at the center of the screen
+    
+    continue_button = pygame.Rect(screen.get_width() // 2 - 100, screen.get_height() // 2 - 40, button_width, button_height) 
+    quit_button = pygame.Rect(screen.get_width() // 2 - 100, screen.get_height() // 2 + 50, button_width, button_height)
+
+    # creating the transparent dark overlay to darken the game screen
+    transparent_bg = pygame.Surface((screen.get_width(), screen.get_height()), pygame.SRCALPHA)
+    transparent_bg.fill((0, 0, 0, 180)) 
+
+    # now draw the actual buttons (blue for "Continue", red for "Quit") inside the transparent background
+    pygame.draw.rect(transparent_bg, (0, 125, 255), continue_button, border_radius=15) 
+    pygame.draw.rect(transparent_bg, (255,0,0), quit_button, border_radius=15)
+
+    # create the texts
+    continue_text = button_font.render("Continue", True, (255, 255, 255))
+    quit_text = button_font.render("Quit", True, (255, 255, 255))
+
+    # now position the button texts inside the buttons (rectangles created earlier)
+    continue_text_rect = continue_text.get_rect(center = continue_button.center)
+    quit_text_rect = quit_text.get_rect(center = quit_button.center)
+
+    # now draw everything
+    screen.blit(transparent_bg, (0, 0))
+    screen.blit(text, text_rect)
+    screen.blit(continue_text, continue_text_rect)
+    screen.blit(quit_text, quit_text_rect)
+    pygame.display.flip()
+
+    return continue_button, quit_button  # return buttons for user interaction
+
+# newly added (2.22.25) function for winning the game showing a "You Win" message 
+# allowing player to choose from "restart" or "quit" 
+# reused code from paused menu
+def you_win(screen, prev_score, high_score):
+    font = pygame.font.Font(my_font, 85)
+    button_font = pygame.font.Font(my_font, 19)
+
+
+    text = font.render("YOU WIN !!", True, (255, 215, 0))
+    text_rect = text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 3))  # positions the text in the center of the screen
+
+    # button rectangles creation (the words will be inside of these rects)
+    button_width, button_height = 220, 60
+    
+    restart_button = pygame.Rect(screen.get_width() // 2 - 100, screen.get_height() // 2 - 40, button_width, button_height) 
+    quit_button = pygame.Rect(screen.get_width() // 2 - 100, screen.get_height() // 2 + 50, button_width, button_height)
+
+    # creating the transparent dark overlay to darken the game screen
+    transparent_bg = pygame.Surface((screen.get_width(), screen.get_height()), pygame.SRCALPHA)
+    transparent_bg.fill((0, 0, 0, 180)) 
+
+    pygame.draw.rect(transparent_bg, (0, 128, 0), restart_button, border_radius=15) 
+    pygame.draw.rect(transparent_bg, (255,0,0), quit_button, border_radius=15)
+
+    # create the texts
+    restart_text = button_font.render("Restart ", True, (255, 255, 255))
+    quit_text = button_font.render("Quit ", True, (255, 255, 255))
+
+    restart_text_rect = restart_text.get_rect(center = restart_button.center)
+    quit_text_rect = quit_text.get_rect(center = quit_button.center)
+
+    screen.blit(transparent_bg, (0, 0))
+    screen.blit(text, text_rect)
+    screen.blit(restart_text, restart_text_rect)
+    screen.blit(quit_text, quit_text_rect)
+    pygame.display.flip()
+
+    save_scores(prev_score, high_score)     # save the scores
+    prev_score, high_score = load_scores()  # Reload scores (will be useful in main.py
+    return restart_button, quit_button  # return buttons for user interaction

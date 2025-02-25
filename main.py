@@ -3,7 +3,7 @@ import pygame
 from player import Player
 from game_map import GameMap
 from movement import check_location, handle_collisions_and_powerups, check_collision_man_ghost
-from scoreboard import draw_score, draw_lives, draw_powerup_event, show_time, show_game_over_screen, save_scores, load_scores, reset_game
+from scoreboard import draw_score, draw_lives, draw_powerup_event, show_time, show_game_over_screen, save_scores, load_scores, reset_game, paused_screen, you_win
 from ghost import Ghost
 import copy
 import time
@@ -38,7 +38,6 @@ ghosts = [
     Ghost(x = 445, y = 360, target = player, speed = 2, img = cyanky_image, dead_img = dead_img, edible_img= edible_img, screen_width = s_width, screen_height = s_height, id = "cyanky")
 ]
 
-
 # Star (power-up) indicator
 star_img = pygame.image.load("assets/images/extras/star.png")
 star_img = pygame.transform.scale(star_img, (53, 53))
@@ -62,11 +61,20 @@ def main():
     lives = 3
     player.lives = lives
    
-    game_map = GameMap(s_width, s_height)   # map for gameplay
-    og_game_map = GameMap(s_width, s_height)    # map for reset (new game)
+    game_map = GameMap(s_width, s_height)    # map for gameplay
+    og_game_map = GameMap(s_width, s_height) # map for reset (new game)
     frame_counter = 0  #will be used for something sooner or later
 
     start_time = time.time()
+
+    # initialize pause variable for the game (use P or space to pause)
+    paused = False
+
+    # initialize Game_won variable
+    game_won = True
+
+    # # initialize a timer before everything starts moving when game starts
+    # game_countdown = 5
 
     run = True
     while run:
@@ -105,8 +113,7 @@ def main():
         for ghost in ghosts:
             ghost.draw(screen)  # Draw each ghost
             ghost.update(game_map.level, player, powered_up, powered_up_counter)
-        
-        
+
         # show the game over text and let the user restart or close the game 
         if player.lives <= 0:
             # first save the scores
@@ -119,6 +126,17 @@ def main():
             player.respawn()
             start_time = time.time()
             elapsed_time = 0
+            game_won = True # reset the game_won checker after game over
+
+        # iterate through the game map to see if the player has won the game yet
+        # this is based on whether or not there are still dots on the map
+        # initialize Game_won variable
+        game_won = True
+        for i in range(len(game_map.level)):
+            if 1 in game_map.level[i] or 2 in game_map.level[i]:
+                game_won = False
+                break
+          
  
         # Handle events
         for event in pygame.event.get():
@@ -137,12 +155,63 @@ def main():
                 elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
                     player.update_direction(3)
                     player.is_moving = True
-                elif event.key == pygame.K_SPACE or event.key == pygame.K_n:
+                elif event.key == pygame.K_p or event.key == pygame.K_SPACE :  # open pause menu
+                    paused = True
+                elif event.key == pygame.K_n:
+                    run = False
+                elif event.key == pygame.K_ESCAPE:    # player hit escape to close the game after winning
+                    game_won = True
                     run = False
                 elif event.key == pygame.K_y or event.key == pygame.K_r:  # to restart and reset game attributes
                     reset_game(player, ghosts, prev_score, high_score)
                     game_map = copy.deepcopy(og_game_map)  # reset gamemap by reinitializing it with the og_game_map     
-                    score = 0
+                    score = 0   # reset the score manually just in case reset_game function trips
+        
+        # game won sequence
+        if game_won:
+            restart_button, quit_button = you_win(screen, prev_score, high_score)  # return buttons for user interaction
+        
+        while game_won:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False     
+                    game_won = False    # break out the loop since run is false
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if restart_button.collidepoint(mouse_pos):  # restart game (player pressed on the restart button position)
+                        prev_score = score
+                        high_score = max(high_score, score)
+                        save_scores(prev_score, high_score)
+                        game_won = False
+                        start_time = time.time()        # reset time manually (reset function not doing it)
+                        elapsed_time = 0                # reset elapsed time as well
+                        powered_up = False              # make sure powerup isn't active from last game session
+                        reset_game(player, ghosts, prev_score, high_score)
+                        game_map = copy.deepcopy(og_game_map)  # reset gamemap by reinitializing it with the og_game_map     
+                        score = 0   # reset the score 
+    
+                    if quit_button.collidepoint(mouse_pos):  # quit game based on mouse position(over the quit)
+                        run = False          # ends the game
+                        game_won = False     # ends the game won loop 
+
+        # game paused sequence
+        if paused:
+            continue_button, quit_button = paused_screen(screen)
+
+        while paused:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    paused = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if continue_button.collidepoint(mouse_pos):  # continue game (player pressed on the continute button position)
+                        paused = False
+                    if quit_button.collidepoint(mouse_pos):  # quit game based on mouse position(over the quit)
+                        run = False
+                        paused = False          # to end the paused loop
+            pygame.time.delay(100)  # small delay to prevent CPU overuse during paused sequence
+        
         """ 
         Screen wrapping logic for pacman and ghosts
         doesn't work well in functions for some reason
