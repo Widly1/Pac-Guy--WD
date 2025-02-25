@@ -36,4 +36,5 @@ Special thanks to the online communities, tutorials, and resources that helped m
 4. Try to achieve the highest score possible!
 5. Have Fun :)
 
-Stay tuned for future updates and enhancements!
+Stay tuned for future updates and enhancements! 
+P.s. Feel free to contribute wherever you'd like to !
