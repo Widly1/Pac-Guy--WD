@@ -212,5 +212,5 @@ def you_win(screen, prev_score, high_score):
     pygame.display.flip()
 
     save_scores(prev_score, high_score)     # save the scores
-    prev_score, high_score = load_scores()  # Reload scores (will be useful in main.py
+    prev_score, high_score = load_scores()  # Reload scores (will be useful in main.py)
     return restart_button, quit_button  # return buttons for user interaction
